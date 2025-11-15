@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Shorts Generator</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Automated Shorts Generator</h1>
+            <p class="subtitle">Upload a Hindi video and get viral-ready vertical clips</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section class="upload-section" id="uploadSection">
+                <div class="upload-box" id="uploadBox">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p class="upload-text">Drop your video here or click to browse</p>
+                    <p class="upload-hint">Supports: MP4, MOV, AVI • Max: 2GB • 16:9 aspect ratio</p>
+                    <input type="file" id="videoInput" accept="video/*" hidden>
+                </div>
+
+                <button class="btn btn-primary" id="processBtn" disabled>
+                    Generate Shorts
+                </button>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="progress-section hidden" id="progressSection">
+                <div class="progress-header">
+                    <h2>Processing Video</h2>
+                    <span class="status-badge" id="statusBadge">Starting...</span>
+                </div>
+
+                <div class="progress-steps">
+                    <div class="step" data-step="upload">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <div class="step-title">Upload Video</div>
+                            <div class="step-status">Waiting...</div>
+                        </div>
+                    </div>
+
+                    <div class="step" data-step="extract">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <div class="step-title">Extract Audio</div>
+                            <div class="step-status">Waiting...</div>
+                        </div>
+                    </div>
+
+                    <div class="step" data-step="transcribe">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <div class="step-title">Transcribe (WhisperX)</div>
+                            <div class="step-status">Waiting...</div>
+                        </div>
+                    </div>
+
+                    <div class="step" data-step="analyze">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <div class="step-title">Analyze for Viral Clips</div>
+                            <div class="step-status">Waiting...</div>
+                        </div>
+                    </div>
+
+                    <div class="step" data-step="track">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <div class="step-title">Track Faces</div>
+                            <div class="step-status">Waiting...</div>
+                        </div>
+                    </div>
+
+                    <div class="step" data-step="generate">
+                        <div class="step-number">6</div>
+                        <div class="step-content">
+                            <div class="step-title">Generate Clips</div>
+                            <div class="step-status">Waiting...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p class="progress-text" id="progressText">0% complete</p>
+
+                <div class="log-box" id="logBox">
+                    <div class="log-header">Process Log</div>
+                    <div class="log-content" id="logContent"></div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section hidden" id="resultsSection">
+                <div class="results-header">
+                    <h2>✅ Generated Clips</h2>
+                    <button class="btn btn-secondary" id="newVideoBtn">Process Another Video</button>
+                </div>
+
+                <div class="clips-grid" id="clipsGrid">
+                    <!-- Clips will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section hidden" id="errorSection">
+                <div class="error-box">
+                    <h2>❌ Processing Failed</h2>
+                    <p class="error-message" id="errorMessage"></p>
+                    <button class="btn btn-secondary" id="retryBtn">Try Again</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by WhisperX, YOLOv8, and FastAPI • Running locally on your M4 Pro</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
