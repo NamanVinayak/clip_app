@@ -12,6 +12,8 @@ from modules.video_processor import VideoProcessor
 from modules.transcriber import Transcriber
 from modules.clip_selector import ClipSelector
 from modules.face_tracker import FaceTracker
+from modules.transliterator import HindiTransliterator
+from modules.subtitle_renderer import SubtitleRenderer
 from utils.helpers import create_job_folder, get_video_info, setup_logger
 
 app = FastAPI(title="Automated Shorts Generator")
@@ -79,6 +81,7 @@ async def process_video(video: UploadFile = File(...)):
     4. Analyze for viral clips
     5. Track faces
     6. Generate vertical clips
+    7. Add animated subtitles (word-by-word)
     """
     job_folder = None
 
@@ -196,7 +199,96 @@ async def process_video(video: UploadFile = File(...)):
                 "first_3_seconds": clip.get('first_3_seconds', '')
             })
 
-        await send_progress("generate", "complete", "All clips generated!", 100)
+        await send_progress("generate", "complete", "All clips generated!", 95)
+
+        # Step 6: Add Subtitles (if enabled)
+        if settings.enable_subtitles:
+            await send_progress("subtitles", "active", "Adding animated subtitles...", 96)
+            job_logger.info("Starting subtitle rendering...")
+
+            try:
+                # Initialize subtitle modules
+                transliterator = HindiTransliterator(job_folder)
+                subtitle_renderer = SubtitleRenderer(job_folder)
+
+                # Transliterate transcript to Roman script
+                romanized_transcript = transliterator.transliterate_transcript(transcript_data)
+
+                # Process each clip
+                for i, clip_info in enumerate(generated_clips):
+                    progress = 96 + int((i / len(generated_clips)) * 4)
+                    await send_progress(
+                        "subtitles",
+                        "active",
+                        f"Rendering subtitles for clip {i+1}/{len(generated_clips)}...",
+                        progress
+                    )
+
+                    # Get words for this clip's timeframe
+                    from utils.helpers import parse_timestamp
+                    clip_start = parse_timestamp(clip_info['start_time'])
+                    clip_end = parse_timestamp(clip_info['end_time'])
+                    clip_duration = clip_end - clip_start
+
+                    # Extract words in this clip's timeframe
+                    clip_words = []
+                    for segment in romanized_transcript.get('segments', []):
+                        if 'words' in segment:
+                            for word in segment['words']:
+                                word_start = word.get('start', 0)
+                                word_end = word.get('end', 0)
+
+                                # Check if word overlaps with clip timeframe
+                                if word_end > clip_start and word_start < clip_end:
+                                    # Adjust timestamps relative to clip start
+                                    clip_words.append({
+                                        'text_roman': word.get('text_roman', word.get('text', '')),
+                                        'start': max(0, word_start - clip_start),
+                                        'end': min(clip_duration, word_end - clip_start)
+                                    })
+
+                    if not clip_words:
+                        job_logger.warning(f"No words found for clip {i+1}, skipping subtitles")
+                        continue
+
+                    # Render subtitles for this clip
+                    try:
+                        subtitle_overlay = subtitle_renderer.render_subtitles_for_clip(
+                            romanized_words=clip_words,
+                            clip_duration=clip_duration,
+                            style_name=settings.subtitle_style,
+                            resolution=(1080, 1920),
+                            fps=settings.subtitle_fps
+                        )
+
+                        # Composite subtitles onto clip
+                        clip_filename = Path(clip_info['url']).name
+                        clip_path = job_folder / clip_filename
+                        final_clip_filename = f"clip_{i+1:02d}_final.mp4"
+                        final_clip_path = job_folder / final_clip_filename
+
+                        processor.composite_subtitles(
+                            clip_path,
+                            subtitle_overlay,
+                            final_clip_path
+                        )
+
+                        # Update clip URL to point to final clip with subtitles
+                        clip_info['url'] = f"/outputs/{job_folder.name}/{final_clip_filename}"
+
+                        job_logger.info(f"✓ Subtitles added to clip {i+1}")
+
+                    except Exception as e:
+                        job_logger.error(f"Subtitle rendering failed for clip {i+1}: {e}")
+                        # Continue with original clip without subtitles
+
+                await send_progress("subtitles", "complete", "Subtitles added!", 100)
+                job_logger.info("✓ All subtitles rendered successfully")
+
+            except Exception as e:
+                job_logger.error(f"Subtitle processing failed: {e}")
+                await send_progress("subtitles", "error", f"Subtitle error: {str(e)}", 100)
+                # Continue with clips without subtitles
 
         # Save results summary
         results_path = job_folder / "results.json"
