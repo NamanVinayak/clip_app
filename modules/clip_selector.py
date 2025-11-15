@@ -224,7 +224,10 @@ Always return ONLY valid JSON. No markdown, no explanation, just:
                 }
             ],
             "temperature": 0.7,
-            "max_tokens": 2000
+            # Allow enough room for JSON output even for larger transcripts
+            "max_tokens": 3000,
+            # Hint to models (including Qwen 3) that we want strict JSON
+            "response_format": {"type": "json_object"},
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -238,19 +241,28 @@ Always return ONLY valid JSON. No markdown, no explanation, just:
                 self.logger.info(f"OpenRouter response keys: {list(result.keys())}")
                 self.logger.info(f"Full response: {json.dumps(result, indent=2)[:1000]}")
 
-                content = result['choices'][0]['message']['content']
+                message = result["choices"][0]["message"]
+                content = message.get("content") or ""
+                reasoning = message.get("reasoning") or ""
 
                 self.logger.info(f"LLM content length: {len(content) if content else 0}")
                 self.logger.info(f"LLM content preview: {content[:500] if content else 'EMPTY'}")
+                if reasoning:
+                    self.logger.info(f"LLM reasoning length: {len(reasoning)}")
+                    self.logger.info(f"LLM reasoning preview: {reasoning[:500]}")
+
+                # Prefer content, but some models (e.g. qwen/qwen3-32b via Nebius)
+                # may put the useful text into `reasoning` instead.
+                raw_text = content if content and content.strip() else reasoning
 
                 # Parse JSON response
                 # Remove markdown code blocks if present
-                if '```json' in content:
-                    content = content.split('```json')[1].split('```')[0]
-                elif '```' in content:
-                    content = content.split('```')[1].split('```')[0]
+                if '```json' in raw_text:
+                    raw_text = raw_text.split('```json')[1].split('```')[0]
+                elif '```' in raw_text:
+                    raw_text = raw_text.split('```')[1].split('```')[0]
 
-                clips_data = json.loads(content.strip())
+                clips_data = json.loads(raw_text.strip())
                 clips = clips_data.get('clips', [])
 
                 self.logger.info(f"LLM suggested {len(clips)} clips")

@@ -47,6 +47,10 @@ class FaceTracker:
         cap = cv2.VideoCapture(str(video_path))
         fps = cap.get(cv2.CAP_PROP_FPS)
 
+        # Get frame dimensions (actual source resolution)
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
         # Calculate frame numbers
         start_seconds = parse_timestamp(start_time)
         end_seconds = parse_timestamp(end_time)
@@ -149,22 +153,30 @@ class FaceTracker:
         if not face_positions:
             self.logger.warning("No faces detected in clip")
             # Return center of frame as fallback
-            return self._get_fallback_crop()
+            return self._get_fallback_center(frame_width, frame_height)
 
-        # Calculate optimal crop position
-        crop_params = self._calculate_optimal_crop(face_positions)
+        # Calculate stable face center over time
+        stats = self._calculate_face_center(face_positions, frame_width, frame_height)
 
         self.logger.info(f"Detected {len(face_positions)} face positions")
         return {
             'face_positions': face_positions,
-            'crop_params': crop_params
+            'face_center_x': stats['face_center_x'],
+            'face_center_y': stats['face_center_y'],
+            'source_width': frame_width,
+            'source_height': frame_height
         }
 
-    def _calculate_optimal_crop(self, face_positions: List[Dict]) -> Dict:
+    def _calculate_face_center(
+        self,
+        face_positions: List[Dict],
+        frame_width: int,
+        frame_height: int
+    ) -> Dict:
         """
-        Calculate optimal 9:16 crop window that keeps face centered
+        Calculate a stable face center position over time.
 
-        Uses median position for robustness and applies temporal smoothing
+        Uses median position for robustness and logs tracking statistics.
         """
         # Get all center positions
         x_positions = [pos['center_x'] for pos in face_positions]
@@ -179,80 +191,58 @@ class FaceTracker:
         std_x = int(np.std(x_positions))
 
         # Count detection methods used
-        keypoint_detections = sum(1 for p in face_positions if p.get('method') == 'pose_keypoints')
-        heuristic_detections = sum(1 for p in face_positions if p.get('method') == 'bbox_heuristic')
+        keypoint_detections = sum(
+            1 for p in face_positions if p.get('method') == 'pose_keypoints'
+        )
+        heuristic_detections = sum(
+            1 for p in face_positions if p.get('method') == 'bbox_heuristic'
+        )
 
         # Log detection quality
-        self.logger.info(f"Face tracking stats:")
+        self.logger.info("Face tracking stats:")
         self.logger.info(f"  - Total detections: {len(face_positions)}")
         self.logger.info(f"  - Using pose keypoints: {keypoint_detections}")
         self.logger.info(f"  - Using bbox heuristic: {heuristic_detections}")
         self.logger.info(f"  - Median face position: ({median_x}, {median_y})")
         self.logger.info(f"  - Mean face position: ({mean_x}, {median_y})")
         self.logger.info(f"  - Horizontal std dev: {std_x} pixels (lower is more stable)")
+        self.logger.info(f"  - Frame size: {frame_width}x{frame_height}")
 
         # Get sample keypoint info
         if face_positions:
-            sample_pos = face_positions[len(face_positions)//2]
-            self.logger.info(f"  - Sample frame method: {sample_pos.get('method', 'unknown')}")
+            sample_pos = face_positions[len(face_positions) // 2]
+            self.logger.info(
+                f"  - Sample frame method: {sample_pos.get('method', 'unknown')}"
+            )
             if sample_pos.get('method') == 'pose_keypoints':
-                self.logger.info(f"  - Keypoints detected: {sample_pos.get('keypoints_used', 0)}/3 (nose + eyes)")
-
-        # 9:16 aspect ratio for vertical video
-        # For 4K source (3840x2160), we crop full height and adjust width
-        source_width = 3840
-        source_height = 2160
-
-        crop_height = source_height  # Use full height
-        crop_width = int(crop_height * 9 / 16)  # 1215 pixels for 9:16 ratio
-
-        # Center crop on face horizontally
-        # Formula: place median_x at the horizontal center of crop window
-        half_width = crop_width // 2
-        crop_x = median_x - half_width
-
-        # Clamp to valid range
-        crop_x = max(0, min(crop_x, source_width - crop_width))
-        crop_y = 0  # Use full height
-
-        # Calculate where face will appear in final crop
-        face_position_in_crop_pct = ((median_x - crop_x) / crop_width) * 100
-
-        self.logger.info(f"Crop calculation:")
-        self.logger.info(f"  - Crop window: x={crop_x}, y={crop_y}, w={crop_width}, h={crop_height}")
-        self.logger.info(f"  - Face will be at {face_position_in_crop_pct:.1f}% from left (target: 50%)")
-        self.logger.info(f"  - Crop covers pixels {crop_x} to {crop_x + crop_width} of {source_width} total width")
+                self.logger.info(
+                    f"  - Keypoints detected: {sample_pos.get('keypoints_used', 0)}/3 "
+                    "(nose + eyes)"
+                )
 
         return {
-            'x': crop_x,
-            'y': crop_y,
-            'width': crop_width,
-            'height': crop_height,
             'face_center_x': median_x,
             'face_center_y': median_y
         }
 
-    def _get_fallback_crop(self) -> Dict:
+    def _get_fallback_center(self, frame_width: int, frame_height: int) -> Dict:
         """
-        Fallback crop if no faces detected
-        Centers crop in middle of 4K frame
-        """
-        self.logger.info("Using fallback center crop (no faces detected)")
+        Fallback center if no faces detected.
 
-        crop_height = 2160
-        crop_width = int(crop_height * 9 / 16)
-        crop_x = (3840 - crop_width) // 2  # Center horizontally
+        Returns the geometric center of the frame so downstream cropping
+        can still produce a reasonable shot.
+        """
+        self.logger.info("Using fallback center (no faces detected)")
+
+        center_x = frame_width // 2 if frame_width > 0 else 0
+        center_y = frame_height // 2 if frame_height > 0 else 0
 
         return {
             'face_positions': [],
-            'crop_params': {
-                'x': crop_x,
-                'y': 0,
-                'width': crop_width,
-                'height': crop_height,
-                'face_center_x': 3840 // 2,
-                'face_center_y': 2160 // 2
-            }
+            'face_center_x': center_x,
+            'face_center_y': center_y,
+            'source_width': frame_width,
+            'source_height': frame_height
         }
 
     def detect_face_in_frame(self, frame_path: Path) -> Tuple[int, int]:

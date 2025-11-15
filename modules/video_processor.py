@@ -75,8 +75,12 @@ class VideoProcessor:
             )
             filters.append(crop_filter)
 
-            # Scale to 1080x1920 if needed
-            scale_filter = "scale=1080:1920:force_original_aspect_ratio=decrease"
+            # Scale to ~1080x1920 if needed, forcing even dimensions for H.264
+            scale_filter = (
+                "scale=1080:1920:"
+                "force_original_aspect_ratio=decrease:"
+                "force_divisible_by=2"
+            )
             filters.append(scale_filter)
 
         filter_str = ','.join(filters) if filters else None
@@ -117,32 +121,67 @@ class VideoProcessor:
         video_path: Path,
         start_time: str,
         duration: float,
-        crop_x: int,
-        crop_y: int,
+        face_x: int,
+        face_y: int,
+        source_width: int,
+        source_height: int,
         output_name: str
     ) -> Path:
         """
-        Create a vertical 9:16 clip with face-centered cropping
+        Create a vertical 9:16 clip with face-centered cropping.
 
         Args:
             video_path: Source video
             start_time: Start timestamp
             duration: Clip duration in seconds
-            crop_x: X coordinate for crop center
-            crop_y: Y coordinate for crop center
+            face_x: X coordinate of face center in source frame
+            face_y: Y coordinate of face center in source frame
+            source_width: Width of source video in pixels
+            source_height: Height of source video in pixels
             output_name: Output filename
         """
         output_path = self.job_folder / output_name
 
-        # Calculate crop parameters for 9:16
-        # Assuming 4K source (3840x2160)
-        crop_width = 1080  # Target width
-        crop_height = 1920  # Target height
+        # Guard against missing metadata
+        if source_width <= 0 or source_height <= 0:
+            self.logger.warning(
+                "Invalid source dimensions, falling back to 4K defaults (3840x2160)"
+            )
+            source_width = 3840
+            source_height = 2160
 
-        # Adjust crop position to center on face
-        # Make sure we don't go out of bounds
-        crop_x = max(0, min(crop_x - crop_width // 2, 3840 - crop_width))
-        crop_y = max(0, min(crop_y - crop_height // 2, 2160 - crop_height))
+        # Target vertical aspect ratio (width / height)
+        target_aspect = 9 / 16
+
+        # Compute the largest possible 9:16 crop that fits in the source frame
+        # and is centered around the face.
+        crop_height = source_height
+        crop_width = int(crop_height * target_aspect)
+
+        if crop_width > source_width:
+            # Source is narrower / more vertical than 16:9.
+            crop_width = source_width
+            crop_height = int(crop_width / target_aspect)
+
+        # Center the crop window on the face position
+        half_w = crop_width // 2
+        half_h = crop_height // 2
+
+        crop_x = int(face_x - half_w)
+        crop_y = int(face_y - half_h)
+
+        # Clamp to valid range so we don't go outside frame bounds
+        crop_x = max(0, min(crop_x, source_width - crop_width))
+        crop_y = max(0, min(crop_y, source_height - crop_height))
+
+        self.logger.info("Vertical crop parameters:")
+        self.logger.info(
+            f"  - Source size: {source_width}x{source_height}, target aspect 9:16"
+        )
+        self.logger.info(
+            f"  - Face center: ({face_x}, {face_y}) -> crop window x={crop_x}, y={crop_y}, "
+            f"w={crop_width}, h={crop_height}"
+        )
 
         crop_params = {
             'x': crop_x,

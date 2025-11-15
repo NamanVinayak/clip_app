@@ -171,15 +171,18 @@ async def process_video(video: UploadFile = File(...)):
                 progress + 2
             )
 
-            crop_params = tracking_data['crop_params']
+            face_center_x = tracking_data.get('face_center_x')
+            face_center_y = tracking_data.get('face_center_y')
             output_name = f"clip_{i+1:02d}.mp4"
 
             clip_path = processor.create_vertical_clip(
                 video_path=video_path,
                 start_time=clip['start_time'],
                 duration=clip.get('duration_seconds', 30),
-                crop_x=crop_params['x'],
-                crop_y=crop_params['y'],
+                face_x=face_center_x,
+                face_y=face_center_y,
+                source_width=video_info['width'],
+                source_height=video_info['height'],
                 output_name=output_name
             )
 
