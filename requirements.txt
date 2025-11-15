@@ -12,3 +12,7 @@ websockets>=12.0
 # Using indic-transliteration (lighter, rule-based alternative)
 # For ML-based option: ai4bharat-transliteration>=1.0.1
 indic-transliteration>=2.3.0
+
+# Subtitle rendering (from VinVideo project)
+Pillow>=10.0.0  # Image manipulation for subtitle frames
+numpy>=1.24.0   # Frame manipulation
