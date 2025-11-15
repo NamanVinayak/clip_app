@@ -7,3 +7,8 @@ python-multipart>=0.0.9
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 websockets>=12.0
+
+# Transliteration for subtitle system
+# Using indic-transliteration (lighter, rule-based alternative)
+# For ML-based option: ai4bharat-transliteration>=1.0.1
+indic-transliteration>=2.3.0

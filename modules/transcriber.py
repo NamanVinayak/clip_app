@@ -141,6 +141,9 @@ class Transcriber:
                 srt_path = self.job_folder / "transcript.srt"
                 self._save_as_srt(transcript_data['segments'], srt_path)
 
+                # Save word-level timestamps for subtitle generation
+                self.save_word_timestamps(transcript_data)
+
                 self.logger.info(f"Transcript saved to {transcript_path}")
                 return transcript_data
 
@@ -158,9 +161,25 @@ class Transcriber:
 
     def _parse_whisperx_response(self, response: Dict) -> Dict:
         """
-        Parse WhisperX response into standardized format
+        Parse WhisperX response into standardized format with word-level timestamps
 
-        Adjust this based on your RunPod endpoint's response structure
+        When align_output=True, WhisperX provides word-level timestamps in the 'words'
+        array within each segment. This method extracts both segment and word-level data.
+
+        Response structure:
+        {
+          "segments": [
+            {
+              "start": 0.0,
+              "end": 5.0,
+              "text": "segment text",
+              "words": [  # Word-level timestamps (from alignment)
+                {"word": "text", "start": 0.0, "end": 0.5},
+                ...
+              ]
+            }
+          ]
+        }
         """
         # Common WhisperX response format
         if 'output' in response:
@@ -170,9 +189,19 @@ class Transcriber:
         else:
             data = response
 
+        # Extract segments with word-level data
+        segments = data.get('segments', [])
+
+        # Log whether word-level timestamps are present
+        has_words = any('words' in seg for seg in segments)
+        if has_words:
+            self.logger.info("Word-level timestamps detected in WhisperX response")
+        else:
+            self.logger.warning("No word-level timestamps found. Check align_output=True in request")
+
         return {
             'text': data.get('text', ''),
-            'segments': data.get('segments', []),
+            'segments': segments,
             'language': data.get('language', 'hi')
         }
 
@@ -198,6 +227,57 @@ class Transcriber:
         secs = int(seconds % 60)
         millis = int((seconds % 1) * 1000)
         return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+    def save_word_timestamps(self, transcript_data: Dict) -> Path:
+        """
+        Save word-level timestamps to separate JSON file for subtitle processing
+
+        This extracts all words with their precise timestamps from the transcript,
+        making it easier for the subtitle generator to create word-level subtitles.
+
+        Args:
+            transcript_data: Transcript dict with segments containing words
+
+        Returns:
+            Path to saved word timestamps file
+        """
+        word_data = {
+            'language': transcript_data.get('language', 'hi'),
+            'full_text': transcript_data.get('text', ''),
+            'words': []
+        }
+
+        word_count = 0
+        for segment in transcript_data.get('segments', []):
+            if 'words' in segment:
+                # Extract words from this segment
+                for word_info in segment['words']:
+                    # Handle different possible word formats from WhisperX
+                    # Some versions use 'word', others use 'text'
+                    word_text = word_info.get('word', word_info.get('text', ''))
+
+                    word_data['words'].append({
+                        'text': word_text,
+                        'start': word_info.get('start', 0.0),
+                        'end': word_info.get('end', 0.0),
+                        'segment_id': segment.get('id', 0)
+                    })
+                    word_count += 1
+
+        # Save word-level timestamps
+        words_path = self.job_folder / "transcript_words.json"
+        with open(words_path, 'w', encoding='utf-8') as f:
+            json.dump(word_data, f, ensure_ascii=False, indent=2)
+
+        self.logger.info(f"Saved {word_count} word-level timestamps to {words_path}")
+
+        if word_count == 0:
+            self.logger.warning(
+                "No word-level timestamps found! Subtitle generation may not work properly. "
+                "Ensure align_output=True in WhisperX request."
+            )
+
+        return words_path
 
 
 # Alternative implementation if using direct file upload
@@ -240,5 +320,8 @@ class TranscriberFileUpload(Transcriber):
 
             srt_path = self.job_folder / "transcript.srt"
             self._save_as_srt(transcript_data['segments'], srt_path)
+
+            # Save word-level timestamps for subtitle generation
+            self.save_word_timestamps(transcript_data)
 
             return transcript_data
