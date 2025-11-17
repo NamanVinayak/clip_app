@@ -1,0 +1,153 @@
+{
+  "simple_caption": {
+    "name": "SIMPLE CAPTION",
+    "description": "Clean, educational text for tutorials and how-to content",
+    "version": "3.0",
+    "effect_type": "outline",
+    "format": {
+      "resolution": [1080, 1920],
+      "aspect_ratio": "9:16",
+      "target_platform": ["Instagram", "YouTube Shorts", "TikTok"]
+    },
+    "layout": {
+      "text_positioning": "bottom",
+      "safe_zones": true,
+      "safe_margins": {
+        "horizontal": 100,
+        "top": 220,
+        "bottom": 450
+      },
+      "words_per_window": 3,
+      "max_width": 880
+    },
+    "typography": {
+      "font_family": "Arial-Bold",
+      "font_size": 72,
+      "font_size_highlighted": 80,
+      "text_alignment": "center",
+      "text_transform": "uppercase",
+      "colors": {
+        "text": [255, 255, 255],
+        "outline": [0, 0, 0]
+      }
+    },
+    "effect_parameters": {
+      "outline_width": 4
+    },
+    "animation": {
+      "type": "word_highlight",
+      "highlight_method": "size_pulse",
+      "transition_duration": 0.2
+    }
+  },
+
+  "glow_caption": {
+    "name": "GLOW CAPTION",
+    "description": "Gaming & tech content with neon glow effects",
+    "version": "3.0",
+    "effect_type": "text_shadow",
+    "format": {
+      "resolution": [1080, 1920],
+      "aspect_ratio": "9:16",
+      "target_platform": ["Instagram", "YouTube Shorts", "TikTok"]
+    },
+    "layout": {
+      "text_positioning": "bottom",
+      "safe_zones": true,
+      "safe_margins": {
+        "horizontal": 100,
+        "top": 220,
+        "bottom": 450
+      },
+      "words_per_window": 3,
+      "max_width": 900
+    },
+    "typography": {
+      "font_family": "Impact",
+      "font_size": 72,
+      "font_size_highlighted": 72,
+      "text_alignment": "center",
+      "text_transform": "uppercase",
+      "font_weight": "bold",
+      "colors": {
+        "text_normal": [255, 255, 255],
+        "text_highlighted": [57, 255, 20]
+      }
+    },
+    "text_shadow": {
+      "shadowOffsetX": 0,
+      "shadowOffsetY": 0,
+      "shadowBlur": 18,
+      "shadowColor": "currentColor",
+      "normalOpacity": 0.8,
+      "highlightedOpacity": 1.0
+    },
+    "effect_parameters": {
+      "outline_width": 6,
+      "outline_color": [0, 0, 0],
+      "shadow_enabled": true
+    },
+    "animation": {
+      "type": "word_highlight",
+      "highlight_method": "color_glow",
+      "transition_duration": 0.2
+    }
+  },
+
+  "karaoke_style": {
+    "name": "KARAOKE STYLE",
+    "description": "Y2K nostalgic karaoke for music and entertainment",
+    "version": "3.0",
+    "effect_type": "dual_glow",
+    "format": {
+      "resolution": [1080, 1920],
+      "aspect_ratio": "9:16",
+      "target_platform": ["Instagram", "YouTube Shorts", "TikTok"]
+    },
+    "layout": {
+      "text_positioning": "bottom",
+      "safe_zones": true,
+      "safe_margins": {
+        "horizontal": 100,
+        "top": 220,
+        "bottom": 450
+      },
+      "words_per_window": 3,
+      "max_width": 900
+    },
+    "typography": {
+      "font_family": "Arial-Bold",
+      "font_size": 108,
+      "font_size_highlighted": 108,
+      "text_alignment": "center",
+      "text_transform": "uppercase",
+      "font_weight": "800",
+      "colors": {
+        "text_normal": [255, 255, 255],
+        "text_highlighted": [255, 255, 0],
+        "glow_normal": [255, 255, 255],
+        "glow_highlighted": [255, 255, 0]
+      }
+    },
+    "effect_parameters": {
+      "glow_radius_normal": 0,
+      "glow_radius_highlighted": 0,
+      "glow_intensity_normal": 0.0,
+      "glow_intensity_highlighted": 0.0,
+      "outline_width": 6,
+      "outline_color": [0, 0, 0],
+      "no_glow_effects": true,
+      "two_tone_words": true
+    },
+    "animation": {
+      "type": "word_highlight",
+      "highlight_method": "two_tone_no_glow",
+      "transition_duration": 0.2,
+      "word_level_styling": true
+    },
+    "rendering": {
+      "order": ["text_layer"],
+      "separate_word_colors": true
+    }
+  }
+}

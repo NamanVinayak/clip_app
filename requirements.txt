@@ -7,3 +7,10 @@ python-multipart>=0.0.9
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 websockets>=12.0
+
+# Transliteration for subtitle system
+indic-transliteration>=2.3.0
+
+# Subtitle rendering (from VinVideo project)
+Pillow>=10.0.0  # Image manipulation for subtitle frames
+numpy>=1.24.0   # Frame manipulation
