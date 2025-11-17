@@ -213,6 +213,14 @@ async def process_video(video: UploadFile = File(...)):
 
         job_logger.info("Processing complete!")
 
+        # Clean up uploaded original video to avoid storing duplicate copies
+        try:
+            if video_path.exists():
+                video_path.unlink()
+                job_logger.info("Deleted original uploaded video to save space")
+        except Exception as cleanup_err:
+            job_logger.warning(f"Failed to delete original video: {cleanup_err}")
+
         return JSONResponse({
             "success": True,
             "job_id": job_folder.name,

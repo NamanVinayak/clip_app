@@ -1,12 +1,14 @@
-import httpx
 import json
 from pathlib import Path
 from typing import Dict, List
-from utils.helpers import setup_logger
+
+import httpx
+
+from utils.helpers import setup_logger, parse_timestamp, format_timestamp
 
 
 class ClipSelector:
-    """Uses LLM to select viral-worthy clips from transcript"""
+    """Uses an LLM to select viral-worthy clips from a transcript."""
 
     def __init__(
         self,
@@ -15,7 +17,7 @@ class ClipSelector:
         job_folder: Path,
         min_duration: int = 15,
         max_duration: int = 60,
-        target_clips: int = 5
+        target_clips: int = 5,
     ):
         self.api_key = api_key
         self.model = model
@@ -23,210 +25,158 @@ class ClipSelector:
         self.min_duration = min_duration
         self.max_duration = max_duration
         self.target_clips = target_clips
-        self.logger = setup_logger(
-            "ClipSelector",
-            job_folder / "processing.log"
-        )
+        self.logger = setup_logger("ClipSelector", job_folder / "processing.log")
 
     async def select_clips(self, transcript: Dict) -> List[Dict]:
         """
-        Analyze transcript and select viral-worthy clips
+        Analyze transcript and select viral-worthy clips.
 
         Returns:
-            List of clip suggestions with timestamps and reasons
+            List of clip suggestions with timestamps and reasons.
         """
         self.logger.info("Analyzing transcript for viral clips")
 
-        # Build prompt based on OpusClip methodology
-        prompt = self._build_viral_prompt(transcript)
+        base_prompt = self._build_viral_prompt(transcript)
+        prompt = base_prompt
 
-        # Call LLM via OpenRouter
-        clips = await self._call_llm(prompt)
+        best_clips: List[Dict] = []
+        max_attempts = 3
 
-        # Save clip suggestions
+        for attempt in range(1, max_attempts + 1):
+            self.logger.info(
+                f"LLM selection attempt {attempt}/{max_attempts} "
+                f"(target {self.target_clips} clips)"
+            )
+
+            try:
+                raw_clips = await self._call_llm(prompt)
+            except Exception as e:
+                self.logger.error(f"Attempt {attempt} failed: {e}")
+                raw_clips = []
+
+            clips = self._dedupe_and_limit_clips(raw_clips)
+
+            self.logger.info(
+                f"Attempt {attempt}: {len(clips)} valid, non-overlapping clips"
+            )
+
+            if len(clips) > len(best_clips):
+                best_clips = clips
+
+            if len(best_clips) >= self.target_clips:
+                break
+
+            # Build feedback prompt for next attempt
+            prompt = (
+                base_prompt
+                + f"""
+
+PREVIOUS ATTEMPT FEEDBACK:
+- You only returned {len(clips)} valid, non-overlapping clips.
+- You MUST now return at least {self.target_clips} non-overlapping clips.
+- If necessary, choose slightly less perfect but still engaging segments
+  to reach {self.target_clips} clips.
+- All clips must still be between {self.min_duration} and {self.max_duration}
+  seconds and respect the JSON format exactly.
+"""
+            )
+
+        # Save clip suggestions for inspection
         suggestions_path = self.job_folder / "clip_suggestions.json"
-        with open(suggestions_path, 'w', encoding='utf-8') as f:
-            json.dump(clips, f, ensure_ascii=False, indent=2)
+        with open(suggestions_path, "w", encoding="utf-8") as f:
+            json.dump(best_clips, f, ensure_ascii=False, indent=2)
 
-        self.logger.info(f"Selected {len(clips)} clips")
-        return clips
+        self.logger.info(f"Selected {len(best_clips)} clips")
+        return best_clips
 
     def _build_viral_prompt(self, transcript: Dict) -> str:
         """
-        Build LLM prompt based on OpusClip viral criteria
-
-        Focus on:
-        - Strong hooks (first 3 seconds)
-        - Complete thoughts (15-60 seconds)
-        - Emotional peaks
-        - Platform-specific optimization
+        Build LLM prompt based on viral short-form criteria.
         """
-        # Format transcript segments for LLM
         transcript_text = self._format_transcript(transcript)
 
-        prompt = f"""You are an expert at identifying viral-worthy clips for Instagram Reels and YouTube Shorts.
+        prompt = f"""Analyze the following Hindi video transcript and identify {self.target_clips} viral-worthy clips for Instagram Reels and YouTube Shorts.
 
-Analyze this Hindi video transcript and identify {self.target_clips} viral-worthy clips.
+The clips must:
+- Be between {self.min_duration} and {self.max_duration} seconds long
+- Have a strong hook in the first 3 seconds
+- Contain a complete, self-contained narrative
+- Include an emotional or insight-driven payoff
 
 TRANSCRIPT:
 {transcript_text}
-
-SELECTION CRITERIA:
-
-1. STRONG HOOK (First 3 seconds)
-   - Emotional/dramatic opening statement
-   - Intriguing question or controversial claim
-   - Stunning visual moment or problem statement
-   - Must capture attention immediately
-
-2. HOOK TYPES TO LOOK FOR:
-   - Curiosity Hook: Creates intrigue without revealing the complete story
-   - Controversy Hook: Polarizing statement that generates immediate engagement
-   - Problem-Solution Hook: Addresses specific pain point (leverages loss aversion)
-   - Emotional Hook: Strong emotional reaction in opening
-
-3. COMPLETE THOUGHT (Self-contained narrative)
-   - Duration: {self.min_duration}-45 seconds MAXIMUM (Instagram/YouTube Shorts optimal length)
-   - CRITICAL: Clips MUST be 45 seconds or less - this is NON-NEGOTIABLE
-   - Prefer 20-35 second clips for maximum engagement
-   - Has clear beginning, middle, and end
-   - No mid-sentence cuts
-   - Delivers complete value/insight in shortest possible time
-   - Satisfying conclusion or clear call to action
-
-4. EMOTIONAL PEAKS
-   - Moments of high energy or emotion
-   - Valuable insights or "aha" moments
-   - Controversial or thought-provoking statements
-   - Relatable experiences
-
-5. PLATFORM OPTIMIZATION
-   - High information density (value per second)
-   - Fast-paced with no dead air
-   - Suitable for short-form consumption
-   - Re-watchable content
-
-IMPORTANT:
-- Prefer clips with modest, authentic claims over exaggerated promises
-- Look for transitional hooks that build curiosity throughout
-- Ensure each clip can stand alone without context
-- Prioritize complete thoughts over viral moments alone
-
-OUTPUT FORMAT (JSON only, no explanation):
-{{
-  "clips": [
-    {{
-      "start_time": "HH:MM:SS",
-      "end_time": "HH:MM:SS",
-      "duration_seconds": 30,
-      "virality_score": 8.5,
-      "hook_type": "problem-solution",
-      "title": "Brief attention-grabbing title",
-      "reason": "Why this clip is viral-worthy (mention hook quality, emotional arc, and completion)",
-      "first_3_seconds": "What happens in the critical opening"
-    }}
-  ]
-}}
-
-Return ONLY valid JSON, no markdown formatting or explanation."""
-
+"""
         return prompt
 
     def _format_transcript(self, transcript: Dict) -> str:
-        """Format transcript segments with timestamps for LLM analysis"""
-        segments = transcript.get('segments', [])
+        """Format transcript segments with timestamps for LLM analysis."""
+        segments = transcript.get("segments", [])
 
         formatted = []
         for seg in segments:
-            start = self._format_time(seg['start'])
-            end = self._format_time(seg['end'])
-            text = seg['text'].strip()
+            start = self._format_time(seg["start"])
+            end = self._format_time(seg["end"])
+            text = seg["text"].strip()
             formatted.append(f"[{start} - {end}] {text}")
 
-        return '\n'.join(formatted)
+        return "\n".join(formatted)
 
     @staticmethod
     def _format_time(seconds: float) -> str:
-        """Format seconds as HH:MM:SS"""
+        """Format seconds as HH:MM:SS."""
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
+    def _get_system_message(self) -> str:
+        """
+        Load the system prompt for clip selection from an external template.
+
+        This keeps the long instructions out of the code and makes it easier
+        to iterate on the messaging without touching Python logic.
+        """
+        base_dir = Path(__file__).resolve().parent.parent
+        template_path = base_dir / "prompts" / "clip_selector_system.txt"
+
+        try:
+            template = template_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            # Fallback: minimal inline system message if template is missing
+            self.logger.warning(
+                "System prompt template not found; using minimal inline message."
+            )
+            template = (
+                "You are an expert at selecting viral short-form clips. "
+                f"Always return JSON with clips between {self.min_duration} and "
+                f"{self.max_duration} seconds."
+            )
+
+        return template.format(min_d=self.min_duration, max_d=self.max_duration)
+
     async def _call_llm(self, prompt: str) -> List[Dict]:
-        """Call OpenRouter API with viral clip selection prompt"""
+        """Call OpenRouter API with viral clip selection prompt."""
         url = "https://openrouter.ai/api/v1/chat/completions"
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8000",  # Your app URL
-            "X-Title": "Automated Shorts Generator"
+            "HTTP-Referer": "http://localhost:8000",
+            "X-Title": "Automated Shorts Generator",
         }
 
-        system_message = """You are a viral short-form content expert who has analyzed thousands of successful Instagram Reels and YouTube Shorts.
-
-PLATFORM KNOWLEDGE:
-- Instagram Reels & YouTube Shorts are 15-60 second vertical videos (9:16 aspect ratio)
-- Average watch time: 8-12 seconds (most viewers scroll within 10 seconds)
-- The FIRST 3 SECONDS determine if someone keeps watching or scrolls
-- Optimal clip length: 20-35 seconds (engagement drops after 45 seconds)
-- Shorts algorithm prioritizes: watch time %, replays, and completion rate
-
-WHAT MAKES SHORTS GO VIRAL:
-1. INSTANT HOOK (0-3 sec): Pattern interrupts that stop the scroll
-   - Controversial statements: "I'm blocking my entire family"
-   - Bold claims: "This changed everything for me"
-   - Curiosity gaps: "Nobody talks about this..."
-   - Emotional openness: "I need to be honest about..."
-
-2. RETENTION TACTICS (3-30 sec):
-   - Fast pacing (no pauses longer than 2 seconds)
-   - Building tension or curiosity
-   - Relatable pain points or experiences
-   - Visual variety (movement, gestures, changing scenes)
-
-3. SATISFYING PAYOFF (final 5-10 sec):
-   - Clear conclusion or revelation
-   - Emotional resolution
-   - Actionable insight
-   - Cliffhanger that prompts replay
-
-CLIP SELECTION RULES:
-✅ DO SELECT:
-- Clips with strong emotional moments (vulnerability, anger, joy)
-- Self-contained stories that need no context
-- Controversial or polarizing opinions
-- Relatable struggles or "me too" moments
-- Clips that answer: "Why should I keep watching?"
-
-❌ DO NOT SELECT:
-- Long explanations or backstories
-- Mid-conversation clips that need context
-- Clips with weak or slow openings
-- Content that takes >10 seconds to get interesting
-- Generic advice without personal stakes
-
-RESPONSE FORMAT:
-Always return ONLY valid JSON. No markdown, no explanation, just:
-{"clips": [{"start_time": "HH:MM:SS", "end_time": "HH:MM:SS", ...}]}"""
+        system_message = self._get_system_message()
 
         payload = {
             "model": self.model,
             "messages": [
-                {
-                    "role": "system",
-                    "content": system_message
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
             ],
-            "temperature": 0.7,
-            # Allow enough room for JSON output even for larger transcripts
-            "max_tokens": 3000,
-            # Hint to models (including Qwen 3) that we want strict JSON
+            # More deterministic behavior so constraints are followed
+            "temperature": 0.25,
+            "top_p": 0.8,
+            "max_tokens": 20000,
             "response_format": {"type": "json_object"},
         }
 
@@ -237,80 +187,169 @@ Always return ONLY valid JSON. No markdown, no explanation, just:
 
                 result = response.json()
 
-                # Log the full response for debugging
-                self.logger.info(f"OpenRouter response keys: {list(result.keys())}")
-                self.logger.info(f"Full response: {json.dumps(result, indent=2)[:1000]}")
+                self.logger.info(
+                    f"OpenRouter response keys: {list(result.keys())}"
+                )
+                self.logger.info(
+                    f"Full response: {json.dumps(result, indent=2)[:1000]}"
+                )
 
                 message = result["choices"][0]["message"]
                 content = message.get("content") or ""
                 reasoning = message.get("reasoning") or ""
 
-                self.logger.info(f"LLM content length: {len(content) if content else 0}")
-                self.logger.info(f"LLM content preview: {content[:500] if content else 'EMPTY'}")
+                self.logger.info(
+                    f"LLM content length: {len(content) if content else 0}"
+                )
+                self.logger.info(
+                    f"LLM content preview: {content[:500] if content else 'EMPTY'}"
+                )
                 if reasoning:
-                    self.logger.info(f"LLM reasoning length: {len(reasoning)}")
-                    self.logger.info(f"LLM reasoning preview: {reasoning[:500]}")
+                    self.logger.info(
+                        f"LLM reasoning length: {len(reasoning)}"
+                    )
+                    self.logger.info(
+                        f"LLM reasoning preview: {reasoning[:500]}"
+                    )
 
-                # Prefer content, but some models (e.g. qwen/qwen3-32b via Nebius)
-                # may put the useful text into `reasoning` instead.
-                raw_text = content if content and content.strip() else reasoning
+                raw_text = content if content.strip() else reasoning
 
-                # Parse JSON response
-                # Remove markdown code blocks if present
-                if '```json' in raw_text:
-                    raw_text = raw_text.split('```json')[1].split('```')[0]
-                elif '```' in raw_text:
-                    raw_text = raw_text.split('```')[1].split('```')[0]
+                # Strip possible markdown fences
+                if "```json" in raw_text:
+                    raw_text = raw_text.split("```json")[1].split("```")[0]
+                elif "```" in raw_text:
+                    raw_text = raw_text.split("```")[1].split("```")[0]
 
                 clips_data = json.loads(raw_text.strip())
-                clips = clips_data.get('clips', [])
+                raw_clips = clips_data.get("clips", [])
 
-                self.logger.info(f"LLM suggested {len(clips)} clips")
+                self.logger.info(f"LLM suggested {len(raw_clips)} clips")
 
-                # STRICT VALIDATION: Enforce max duration limit
-                validated_clips = []
-                rejected_clips = []
-
-                for clip in clips:
-                    duration = clip.get('duration_seconds', 0)
-
-                    # Enforce HARD maximum of 45 seconds (config max_duration)
-                    if duration > self.max_duration:
-                        rejected_clips.append({
-                            'clip': clip,
-                            'reason': f"Duration {duration}s exceeds maximum {self.max_duration}s"
-                        })
-                        self.logger.warning(f"Rejected clip '{clip.get('title', 'Untitled')}': "
-                                          f"Duration {duration}s > {self.max_duration}s max")
-                    elif duration < self.min_duration:
-                        rejected_clips.append({
-                            'clip': clip,
-                            'reason': f"Duration {duration}s below minimum {self.min_duration}s"
-                        })
-                        self.logger.warning(f"Rejected clip '{clip.get('title', 'Untitled')}': "
-                                          f"Duration {duration}s < {self.min_duration}s min")
-                    else:
-                        validated_clips.append(clip)
-
-                if rejected_clips:
-                    self.logger.info(f"Validation: {len(validated_clips)} accepted, {len(rejected_clips)} rejected")
-
-                if not validated_clips:
-                    self.logger.error("No clips passed validation! Using original clips anyway.")
-                    return clips
-
-                return validated_clips
+                return raw_clips
 
             except httpx.HTTPError as e:
                 self.logger.error(f"HTTP error calling LLM: {e}")
-                if hasattr(e, 'response') and e.response:
-                    self.logger.error(f"Response status: {e.response.status_code}")
+                if getattr(e, "response", None) is not None:
+                    self.logger.error(
+                        f"Response status: {e.response.status_code}"
+                    )
                     self.logger.error(f"Response body: {e.response.text}")
                 raise Exception(f"LLM API call failed: {e}")
             except json.JSONDecodeError as e:
                 self.logger.error(f"Failed to parse LLM response as JSON: {e}")
-                self.logger.error(f"Raw response: {content}")
+                self.logger.error(f"Raw response: {raw_text}")
                 raise Exception(f"LLM returned invalid JSON: {e}")
             except Exception as e:
                 self.logger.error(f"Error calling LLM: {e}")
                 raise
+
+    def _normalize_and_validate_clips(self, clips: List[Dict]) -> List[Dict]:
+        """
+        Ensure all clips respect duration bounds and have consistent timestamps.
+
+        - Recomputes duration_seconds from end_time - start_time
+        - Keeps only clips within [min_duration, max_duration]
+        - Drops clips that are structurally invalid (missing times, negative ranges)
+        """
+        normalized: List[Dict] = []
+        dropped: List[Dict] = []
+
+        for clip in clips:
+            start_str = clip.get("start_time")
+            end_str = clip.get("end_time")
+
+            if not start_str or not end_str:
+                dropped.append(
+                    {"clip": clip, "reason": "Missing start_time or end_time"}
+                )
+                continue
+
+            try:
+                start_s = parse_timestamp(start_str)
+                end_s = parse_timestamp(end_str)
+            except Exception as e:
+                dropped.append({"clip": clip, "reason": f"Invalid timestamps: {e}"})
+                continue
+
+            duration = max(0.0, end_s - start_s)
+            if duration <= 0:
+                dropped.append({"clip": clip, "reason": "Non-positive duration"})
+                continue
+
+            if duration > self.max_duration or duration < self.min_duration:
+                dropped.append(
+                    {
+                        "clip": clip,
+                        "reason": (
+                            f"Duration {duration:.1f}s outside "
+                            f"[{self.min_duration},{self.max_duration}]"
+                        ),
+                    }
+                )
+                continue
+
+            clip["start_time"] = format_timestamp(start_s)
+            clip["end_time"] = format_timestamp(end_s)
+            clip["duration_seconds"] = int(round(duration))
+
+            normalized.append(clip)
+
+        if dropped:
+            self.logger.info(
+                f"Duration normalization: {len(normalized)} kept, "
+                f"{len(dropped)} dropped"
+            )
+
+        return normalized
+
+    def _dedupe_and_limit_clips(self, clips: List[Dict]) -> List[Dict]:
+        """
+        Remove structurally invalid / out-of-range clips, de-duplicate
+        overlapping segments, and cap the result at target_clips.
+        """
+        normalized = self._normalize_and_validate_clips(clips)
+
+        if not normalized:
+            return []
+
+        # Sort by start time
+        def start_time_s(c: Dict) -> float:
+            return parse_timestamp(c["start_time"])
+
+        normalized.sort(key=start_time_s)
+
+        # Keep non-overlapping clips (allowing up to 1s overlap buffer)
+        non_overlapping: List[Dict] = []
+        last_end: float = -1.0
+        overlap_buffer = 1.0
+
+        for clip in normalized:
+            s = parse_timestamp(clip["start_time"])
+            e = parse_timestamp(clip["end_time"])
+
+            if last_end < 0 or s >= last_end - overlap_buffer:
+                non_overlapping.append(clip)
+                last_end = e
+            else:
+                self.logger.info(
+                    "Dropping overlapping clip "
+                    f"{clip.get('title', '(untitled)')} "
+                    f"[{clip['start_time']} - {clip['end_time']}]"
+                )
+
+        if not non_overlapping:
+            return []
+
+        # Sort by virality_score (highest first) and cap at target_clips
+        def score(c: Dict) -> float:
+            try:
+                return float(c.get("virality_score", 0) or 0)
+            except Exception:
+                return 0.0
+
+        non_overlapping.sort(key=score, reverse=True)
+
+        if len(non_overlapping) > self.target_clips:
+            non_overlapping = non_overlapping[: self.target_clips]
+
+        return non_overlapping
