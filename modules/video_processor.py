@@ -219,3 +219,44 @@ class VideoProcessor:
 
         subprocess.run(cmd, capture_output=True, check=True)
         return frame_path
+
+    def composite_subtitles(
+        self,
+        video_path: Path,
+        subtitle_overlay_path: Path,
+        output_path: Path
+    ) -> Path:
+        """
+        Composite subtitle overlay onto video
+
+        Args:
+            video_path: Base video clip
+            subtitle_overlay_path: Transparent subtitle video (ProRes 4444)
+            output_path: Output path for final video
+
+        Returns:
+            Path to composited video
+        """
+        self.logger.info("Compositing subtitles onto video...")
+
+        # FFmpeg overlay filter
+        cmd = [
+            'ffmpeg',
+            '-i', str(video_path),
+            '-i', str(subtitle_overlay_path),
+            '-filter_complex', '[0:v][1:v]overlay=0:0',
+            '-c:v', 'libx264',
+            '-preset', 'medium',
+            '-crf', '23',
+            '-c:a', 'copy',
+            '-y',
+            str(output_path)
+        ]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            self.logger.info(f"✓ Subtitles composited: {output_path}")
+            return output_path
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"FFmpeg compositing failed: {e.stderr}")
+            raise Exception(f"Subtitle compositing failed: {e.stderr}")

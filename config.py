@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     max_clip_duration: int = 60
     target_clips: int = 5
 
+    # Subtitle Settings
+    enable_subtitles: bool = True
+    subtitle_style: str = "simple_caption"  # simple_caption, glow_caption, karaoke_style
+    subtitle_fps: int = 30
+
     # Paths
     base_dir: Path = Path(__file__).parent
     uploads_dir: Path = base_dir / "uploads"
