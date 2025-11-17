@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from pathlib import Path
@@ -70,7 +70,11 @@ async def send_progress(step: str, status: str, message: str, progress: int):
 
 
 @app.post("/process")
-async def process_video(video: UploadFile = File(...)):
+async def process_video(
+    video: UploadFile = File(...),
+    enable_subtitles: str = Form("true"),
+    subtitle_style: str = Form("simple_caption")
+):
     """
     Main endpoint to process video and generate shorts
 
@@ -81,7 +85,11 @@ async def process_video(video: UploadFile = File(...)):
     4. Analyze for viral clips
     5. Track faces
     6. Generate vertical clips
+    7. Add subtitles (if enabled)
     """
+    # Parse subtitle settings
+    enable_subs = enable_subtitles.lower() in ('true', '1', 'yes')
+    sub_style = subtitle_style if subtitle_style in ['simple_caption', 'glow_caption', 'karaoke_style'] else 'simple_caption'
     job_folder = None
 
     try:
@@ -204,8 +212,9 @@ async def process_video(video: UploadFile = File(...)):
         await send_progress("generate", "complete", "All clips generated!", 95)
 
         # Step 6: Add Subtitles (if enabled)
-        if settings.enable_subtitles:
+        if enable_subs:
             await send_progress("subtitles", "active", "Adding animated subtitles...", 96)
+            job_logger.info(f"Subtitles enabled with style: {sub_style}")
             job_logger.info("Starting subtitle rendering...")
 
             try:
@@ -258,7 +267,7 @@ async def process_video(video: UploadFile = File(...)):
                         subtitle_overlay = subtitle_renderer.render_subtitles_for_clip(
                             romanized_words=clip_words,
                             clip_duration=clip_duration,
-                            style_name=settings.subtitle_style,
+                            style_name=sub_style,
                             resolution=(1080, 1920),
                             fps=settings.subtitle_fps
                         )
@@ -291,6 +300,9 @@ async def process_video(video: UploadFile = File(...)):
                 job_logger.error(f"Subtitle processing failed: {e}")
                 await send_progress("subtitles", "error", f"Subtitle error: {str(e)}", 100)
                 # Continue with clips without subtitles
+        else:
+            await send_progress("subtitles", "complete", "Subtitles skipped (disabled)", 100)
+            job_logger.info("Subtitles disabled by user, skipping subtitle rendering")
 
         # Save results summary
         results_path = job_folder / "results.json"

@@ -14,9 +14,18 @@ const clipsGrid = document.getElementById('clipsGrid');
 const errorMessage = document.getElementById('errorMessage');
 const newVideoBtn = document.getElementById('newVideoBtn');
 const retryBtn = document.getElementById('retryBtn');
+const settingsBox = document.getElementById('settingsBox');
+const enableSubtitles = document.getElementById('enableSubtitles');
+const subtitleStyle = document.getElementById('subtitleStyle');
+const subtitleStyleSetting = document.getElementById('subtitleStyleSetting');
 
 let selectedFile = null;
 let ws = null;
+
+// Subtitle checkbox toggle
+enableSubtitles.addEventListener('change', (e) => {
+    subtitleStyleSetting.style.display = e.target.checked ? 'block' : 'none';
+});
 
 // Upload box interactions
 uploadBox.addEventListener('click', () => videoInput.click());
@@ -67,6 +76,9 @@ function handleFileSelect(file) {
     const uploadText = uploadBox.querySelector('.upload-text');
     uploadText.textContent = `Selected: ${file.name}`;
     uploadText.style.color = 'var(--success)';
+
+    // Show settings box
+    settingsBox.style.display = 'block';
 }
 
 // Process button
@@ -105,6 +117,10 @@ function connectWebSocket() {
 async function uploadAndProcess() {
     const formData = new FormData();
     formData.append('video', selectedFile);
+
+    // Add subtitle settings
+    formData.append('enable_subtitles', enableSubtitles.checked);
+    formData.append('subtitle_style', subtitleStyle.value);
 
     try {
         const response = await fetch('/process', {

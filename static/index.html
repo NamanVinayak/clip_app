@@ -27,6 +27,35 @@
                     <input type="file" id="videoInput" accept="video/*" hidden>
                 </div>
 
+                <!-- Subtitle Settings -->
+                <div class="settings-box" id="settingsBox" style="display: none;">
+                    <h3>⚙️ Settings</h3>
+
+                    <div class="setting-item">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableSubtitles" checked>
+                            <span>Add Hindi Subtitles (Roman script)</span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item" id="subtitleStyleSetting">
+                        <label for="subtitleStyle">Subtitle Style:</label>
+                        <select id="subtitleStyle" class="style-select">
+                            <option value="simple_caption">Simple Caption (outline + size)</option>
+                            <option value="glow_caption">Glow Caption (neon effect)</option>
+                            <option value="karaoke_style">Karaoke Style (color change)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-description">
+                        <small>
+                            <strong>Simple Caption:</strong> White text with black outline, current word slightly larger<br>
+                            <strong>Glow Caption:</strong> Neon glow effect with color shift<br>
+                            <strong>Karaoke Style:</strong> Color changes word-by-word (white → yellow)
+                        </small>
+                    </div>
+                </div>
+
                 <button class="btn btn-primary" id="processBtn" disabled>
                     Generate Shorts
                 </button>
@@ -84,6 +113,14 @@
                         <div class="step-number">6</div>
                         <div class="step-content">
                             <div class="step-title">Generate Clips</div>
+                            <div class="step-status">Waiting...</div>
+                        </div>
+                    </div>
+
+                    <div class="step" data-step="subtitles">
+                        <div class="step-number">7</div>
+                        <div class="step-content">
+                            <div class="step-title">Add Subtitles</div>
                             <div class="step-status">Waiting...</div>
                         </div>
                     </div>
