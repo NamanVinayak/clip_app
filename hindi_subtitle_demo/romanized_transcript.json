@@ -1,0 +1,267 @@
+{
+  "text": "",
+  "text_roman": "",
+  "segments": [
+    {
+      "text": "दिल क्या करे जब किसी से किसी को प्यार हो जाए",
+      "start": 2.0,
+      "end": 10.399999999999999,
+      "words": [
+        {
+          "text": "दिल",
+          "start": 2.0,
+          "end": 2.65,
+          "text_roman": "dila"
+        },
+        {
+          "text": "क्या",
+          "start": 2.75,
+          "end": 3.55,
+          "text_roman": "kyA"
+        },
+        {
+          "text": "करे",
+          "start": 3.65,
+          "end": 4.3,
+          "text_roman": "kare"
+        },
+        {
+          "text": "जब",
+          "start": 4.3999999999999995,
+          "end": 4.8999999999999995,
+          "text_roman": "jaba"
+        },
+        {
+          "text": "किसी",
+          "start": 4.999999999999999,
+          "end": 5.799999999999999,
+          "text_roman": "kisI"
+        },
+        {
+          "text": "से",
+          "start": 5.8999999999999995,
+          "end": 6.3999999999999995,
+          "text_roman": "se"
+        },
+        {
+          "text": "किसी",
+          "start": 6.499999999999999,
+          "end": 7.299999999999999,
+          "text_roman": "kisI"
+        },
+        {
+          "text": "को",
+          "start": 7.3999999999999995,
+          "end": 7.8999999999999995,
+          "text_roman": "ko"
+        },
+        {
+          "text": "प्यार",
+          "start": 7.999999999999999,
+          "end": 8.95,
+          "text_roman": "pyAra"
+        },
+        {
+          "text": "हो",
+          "start": 9.049999999999999,
+          "end": 9.549999999999999,
+          "text_roman": "ho"
+        },
+        {
+          "text": "जाए",
+          "start": 9.649999999999999,
+          "end": 10.299999999999999,
+          "text_roman": "jAe"
+        }
+      ],
+      "text_roman": "dila kyA kare jaba kisI se kisI ko pyAra ho jAe"
+    },
+    {
+      "text": "कैसे ये आंखों को समझाएं के यार हो जाए",
+      "start": 10.899999999999999,
+      "end": 17.95,
+      "words": [
+        {
+          "text": "कैसे",
+          "start": 10.899999999999999,
+          "end": 11.7,
+          "text_roman": "kaise"
+        },
+        {
+          "text": "ये",
+          "start": 11.799999999999999,
+          "end": 12.299999999999999,
+          "text_roman": "ye"
+        },
+        {
+          "text": "आंखों",
+          "start": 12.399999999999999,
+          "end": 13.349999999999998,
+          "text_roman": "AMkhoM"
+        },
+        {
+          "text": "को",
+          "start": 13.45,
+          "end": 13.95,
+          "text_roman": "ko"
+        },
+        {
+          "text": "समझाएं",
+          "start": 14.049999999999999,
+          "end": 15.149999999999999,
+          "text_roman": "samajhAeM"
+        },
+        {
+          "text": "के",
+          "start": 15.249999999999998,
+          "end": 15.749999999999998,
+          "text_roman": "ke"
+        },
+        {
+          "text": "यार",
+          "start": 15.849999999999998,
+          "end": 16.499999999999996,
+          "text_roman": "yAra"
+        },
+        {
+          "text": "हो",
+          "start": 16.599999999999998,
+          "end": 17.099999999999998,
+          "text_roman": "ho"
+        },
+        {
+          "text": "जाए",
+          "start": 17.2,
+          "end": 17.849999999999998,
+          "text_roman": "jAe"
+        }
+      ],
+      "text_roman": "kaise ye AMkhoM ko samajhAeM ke yAra ho jAe"
+    },
+    {
+      "text": "दिल तोड़ के जाना ना प्यार में ऐसा करना ना",
+      "start": 18.45,
+      "end": 26.25,
+      "words": [
+        {
+          "text": "दिल",
+          "start": 18.45,
+          "end": 19.099999999999998,
+          "text_roman": "dila"
+        },
+        {
+          "text": "तोड़",
+          "start": 19.2,
+          "end": 20.0,
+          "text_roman": "to.Da"
+        },
+        {
+          "text": "के",
+          "start": 20.099999999999998,
+          "end": 20.599999999999998,
+          "text_roman": "ke"
+        },
+        {
+          "text": "जाना",
+          "start": 20.7,
+          "end": 21.5,
+          "text_roman": "jAnA"
+        },
+        {
+          "text": "ना",
+          "start": 21.599999999999998,
+          "end": 22.099999999999998,
+          "text_roman": "nA"
+        },
+        {
+          "text": "प्यार",
+          "start": 22.2,
+          "end": 23.15,
+          "text_roman": "pyAra"
+        },
+        {
+          "text": "में",
+          "start": 23.25,
+          "end": 23.9,
+          "text_roman": "meM"
+        },
+        {
+          "text": "ऐसा",
+          "start": 24.0,
+          "end": 24.65,
+          "text_roman": "aisA"
+        },
+        {
+          "text": "करना",
+          "start": 24.75,
+          "end": 25.55,
+          "text_roman": "karanA"
+        },
+        {
+          "text": "ना",
+          "start": 25.65,
+          "end": 26.15,
+          "text_roman": "nA"
+        }
+      ],
+      "text_roman": "dila to.Da ke jAnA nA pyAra meM aisA karanA nA"
+    },
+    {
+      "text": "यादों के सहारे जीना हमको ये सिखाना ना",
+      "start": 26.75,
+      "end": 33.650000000000006,
+      "words": [
+        {
+          "text": "यादों",
+          "start": 26.75,
+          "end": 27.7,
+          "text_roman": "yAdoM"
+        },
+        {
+          "text": "के",
+          "start": 27.8,
+          "end": 28.3,
+          "text_roman": "ke"
+        },
+        {
+          "text": "सहारे",
+          "start": 28.400000000000002,
+          "end": 29.35,
+          "text_roman": "sahAre"
+        },
+        {
+          "text": "जीना",
+          "start": 29.450000000000003,
+          "end": 30.250000000000004,
+          "text_roman": "jInA"
+        },
+        {
+          "text": "हमको",
+          "start": 30.35,
+          "end": 31.150000000000002,
+          "text_roman": "hamako"
+        },
+        {
+          "text": "ये",
+          "start": 31.25,
+          "end": 31.75,
+          "text_roman": "ye"
+        },
+        {
+          "text": "सिखाना",
+          "start": 31.85,
+          "end": 32.95,
+          "text_roman": "sikhAnA"
+        },
+        {
+          "text": "ना",
+          "start": 33.050000000000004,
+          "end": 33.550000000000004,
+          "text_roman": "nA"
+        }
+      ],
+      "text_roman": "yAdoM ke sahAre jInA hamako ye sikhAnA nA"
+    }
+  ],
+  "language": "hi"
+}
