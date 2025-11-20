@@ -223,7 +223,7 @@ async def process_video(
                 subtitle_renderer = SubtitleRenderer(job_folder)
 
                 # Transliterate transcript to Roman script
-                romanized_transcript = transliterator.transliterate_transcript(transcript_data)
+                romanized_transcript = transliterator.transliterate_transcript(transcript)
 
                 # Process each clip
                 for i, clip_info in enumerate(generated_clips):

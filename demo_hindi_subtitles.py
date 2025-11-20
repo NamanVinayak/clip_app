@@ -74,11 +74,17 @@ def main():
     print("by using a realistic mock Hindi transcript.\n")
 
     # Setup
-    video_path = Path("hindi_song_video.mp4")
+    if len(sys.argv) > 1:
+        video_path = Path(sys.argv[1])
+    else:
+        video_path = Path("hindi_song_video.mp4")
 
     if not video_path.exists():
         print(f"❌ Video not found: {video_path}")
-        print("   Please run this after downloading the Hindi video")
+        if len(sys.argv) > 1:
+            print("   Please check the path provided.")
+        else:
+            print("   Please run this after downloading the Hindi video")
         return
 
     # Create job folder

@@ -1,7 +1,7 @@
 import httpx
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from utils.helpers import setup_logger
 
 
@@ -63,7 +63,7 @@ class Transcriber:
             job_folder / "processing.log"
         )
 
-    async def transcribe(self, audio_path: Path, audio_url: str = None) -> Dict:
+    async def transcribe(self, audio_path: Path, audio_url: str = None, initial_prompt: Optional[str] = None, language: str = 'hi') -> Dict:
         """
         Send audio to WhisperX and get transcript with timestamps
 
@@ -71,6 +71,8 @@ class Transcriber:
             audio_path: Path to local audio file
             audio_url: Public URL where RunPod can download the audio file
                       If not provided, will upload to file.io automatically
+            initial_prompt: Optional prompt to guide the Whisper model
+            language: Language of the audio (e.g., 'en', 'hi'). Defaults to 'hi'.
 
         Returns:
             Dict with 'text', 'segments', and 'language'
@@ -105,12 +107,14 @@ class Transcriber:
                 payload = {
                     'input': {
                         'audio_file': audio_url,
-                        'language': 'hi',
+                        'language': language, # Use the new language parameter
                         'batch_size': 64,
                         'align_output': True,
-                        'diarization': False
+                        'diarization': True # Enable diarization
                     }
                 }
+                if initial_prompt:
+                    payload['input']['initial_prompt'] = initial_prompt
 
                 self.logger.info(f"Sending request to: {endpoint}")
 

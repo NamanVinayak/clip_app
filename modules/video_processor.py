@@ -18,15 +18,18 @@ class VideoProcessor:
         """Extract audio from video as WAV file"""
         self.logger.info(f"Extracting audio from {video_path.name}")
 
-        audio_path = self.job_folder / "audio.wav"
+        audio_path = self.job_folder / "audio.mp3"
 
         cmd = [
             'ffmpeg',
+            '-err_detect', 'ignore_err', # Ignore decoding errors
             '-i', str(video_path),
             '-vn',  # No video
-            '-acodec', 'pcm_s16le',  # WAV format
-            '-ar', '16000',  # 16kHz sample rate (good for speech)
-            '-ac', '1',  # Mono
+            '-map', '0:1', # Explicitly select stream 1 (audio)
+            '-acodec', 'libmp3lame',  # MP3 format
+            '-ab', '64k',  # 64k bitrate (sufficient for speech, small size)
+            '-ar', '16000',  # 16kHz sample rate
+            '-ac', '1',  # Mono (sufficient for speech)
             '-y',  # Overwrite
             str(audio_path)
         ]
@@ -38,8 +41,10 @@ class VideoProcessor:
         )
 
         if result.returncode != 0:
-            self.logger.error(f"FFmpeg error: {result.stderr}")
-            raise Exception(f"Audio extraction failed: {result.stderr}")
+            self.logger.warning(f"FFmpeg reported errors: {result.stderr[:200]}...")
+            if not audio_path.exists() or audio_path.stat().st_size < 1000:
+                 raise Exception(f"Audio extraction failed: {result.stderr}")
+            self.logger.warning("Proceeding with partially extracted audio...")
 
         self.logger.info(f"Audio extracted to {audio_path}")
         return audio_path
@@ -48,7 +53,7 @@ class VideoProcessor:
         self,
         video_path: Path,
         start_time: str,
-        end_time: str,
+        duration: float,
         output_path: Path,
         crop_params: Optional[dict] = None
     ) -> Path:
@@ -58,11 +63,11 @@ class VideoProcessor:
         Args:
             video_path: Source video file
             start_time: Start timestamp (HH:MM:SS)
-            end_time: End timestamp (HH:MM:SS)
+            duration: Duration of the clip in seconds
             output_path: Output file path
             crop_params: Dict with 'x', 'y', 'width', 'height' for cropping
         """
-        self.logger.info(f"Cutting clip: {start_time} to {end_time}")
+        self.logger.info(f"Cutting clip: {start_time} for {duration} seconds")
 
         # Build filter chain
         filters = []
@@ -90,7 +95,7 @@ class VideoProcessor:
             'ffmpeg',
             '-ss', start_time,  # Start time
             '-i', str(video_path),
-            '-to', end_time,  # End time (relative to start)
+            '-t', str(duration),  # Duration of the clip
             '-c:v', 'libx264',  # H.264 codec
             '-preset', 'medium',  # Encoding speed
             '-crf', '23',  # Quality (lower = better)
@@ -190,16 +195,10 @@ class VideoProcessor:
             'height': crop_height
         }
 
-        # Calculate end time
-        from utils.helpers import parse_timestamp, format_timestamp
-        start_seconds = parse_timestamp(start_time)
-        end_seconds = start_seconds + duration
-        end_time = format_timestamp(end_seconds)
-
         return self.cut_clip(
             video_path,
             start_time,
-            end_time,
+            duration,
             output_path,
             crop_params
         )

@@ -216,12 +216,38 @@ class SubtitleRenderer:
         Returns:
             (active_words, highlighted_word_index)
         """
-        # Find currently speaking word
+        # Find currently speaking word or the most recent word if within a gap
         current_word_idx = None
+        
+        # First check for exact match
         for idx, word in enumerate(words):
             if word['start'] <= current_time < word['end']:
                 current_word_idx = idx
                 break
+        
+        # If no exact match, check if we are in a gap after a word
+        if current_word_idx is None:
+            # Look for the last word that finished before current_time
+            last_word_idx = -1
+            for idx, word in enumerate(words):
+                if word['end'] <= current_time:
+                    last_word_idx = idx
+                else:
+                    # We found a word that starts after current_time
+                    break
+            
+            if last_word_idx >= 0:
+                # Check if the gap is small enough (e.g., < 1.5 seconds)
+                # And ensure we haven't reached the next word yet
+                gap_duration = current_time - words[last_word_idx]['end']
+                
+                # If there is a next word, check if we are before it
+                next_word_starts = float('inf')
+                if last_word_idx + 1 < len(words):
+                    next_word_starts = words[last_word_idx + 1]['start']
+                
+                if gap_duration < 1.5 and current_time < next_word_starts:
+                    current_word_idx = last_word_idx
 
         if current_word_idx is None:
             return [], -1
